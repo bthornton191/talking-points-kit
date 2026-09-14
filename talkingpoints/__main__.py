@@ -20,17 +20,9 @@ import datetime
 
 import requests
 
-from .client import AuthRequired, APIError, TalkingPointsClient
+from .client import AuthRequired, APIError, TalkingPointsClient, parse_timestamp
 
 RequestException = requests.RequestException
-
-
-def _message_ts(date):
-    """Parse a message timestamp to an aware datetime (assume UTC if naive)."""
-    ts = datetime.datetime.fromisoformat(date.replace("Z", "+00:00"))
-    if ts.tzinfo is None:
-        ts = ts.replace(tzinfo=datetime.timezone.utc)
-    return ts
 
 
 def _digest(messages, cutoff):
@@ -40,7 +32,7 @@ def _digest(messages, cutoff):
         date = m.get("date", "")
         if date:
             try:
-                if _message_ts(date).timestamp() < cutoff:
+                if parse_timestamp(date).timestamp() < cutoff:
                     continue
             except ValueError:
                 pass

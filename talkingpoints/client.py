@@ -42,6 +42,7 @@ def default_token_path():
 def save_token(token_file, contact_id, token):
     os.makedirs(os.path.dirname(os.path.abspath(token_file)), exist_ok=True)
     fd = os.open(token_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)  # also tightens a pre-existing file's mode
     with os.fdopen(fd, "w") as f:
         json.dump(
             {"contact_id": contact_id, "token": token, "timestamp": int(time.time())},
@@ -55,6 +56,17 @@ def load_token(token_file):
             return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
         return None
+
+
+def parse_timestamp(value):
+    """Parse an API timestamp (ISO 8601) to an aware datetime.
+
+    Assumes UTC when the string carries no timezone suffix.
+    """
+    ts = datetime.datetime.fromisoformat(value.replace("Z", "+00:00"))
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=datetime.timezone.utc)
+    return ts
 
 
 class TalkingPointsClient:
@@ -133,8 +145,12 @@ class TalkingPointsClient:
         r.raise_for_status()
         return r.json()["data"]
 
-    def fetch_messages(self, page=0, page_size=50, days=7):
+    def fetch_messages(self, page_size=50, days=7, max_pages=50):
         """Fetch and normalize recent messages.
+
+        Paginates through the feed (newest-first) until a full page yields
+        nothing inside the window, so windows longer than one page of
+        messages are fully covered.
 
         Returns a dict:
           {
@@ -147,24 +163,40 @@ class TalkingPointsClient:
             ]  # sorted newest-first, only messages newer than `days`
           }
         """
-        data = self.fetch_raw(page=page, page_size=page_size)
         now = datetime.datetime.now(datetime.timezone.utc)
         cutoff = now - datetime.timedelta(days=days)
 
         messages = []
-        for m in data["messages"]:
-            created = datetime.datetime.fromisoformat(
-                m["createdAt"].replace("Z", "+00:00")
-            )
-            if created >= cutoff:
-                messages.append(
-                    {
-                        "date": m.get("displayDate", m["createdAt"]),
-                        "from": m.get("from", {}).get("user", {}).get("firstName", "?"),
-                        "text": m.get("text", "").strip(),
-                        "read": m.get("read", False),
-                    }
-                )
+        unread = None
+        page = 0
+        while page < max_pages:
+            data = self.fetch_raw(page=page, page_size=page_size)
+            batch = data["messages"]
+            unread = data.get("unreadCount")
+            if not batch:
+                break
+
+            added = 0
+            for m in batch:
+                created = parse_timestamp(m["createdAt"])
+                if created >= cutoff:
+                    messages.append(
+                        {
+                            "date": m.get("displayDate", m["createdAt"]),
+                            "from": m.get("from", {})
+                            .get("user", {})
+                            .get("firstName", "?"),
+                            "text": m.get("text", "").strip(),
+                            "read": m.get("read", False),
+                        }
+                    )
+                    added += 1
+            # feed is newest-first: stop when this page has no more data
+            # or nothing fell inside the window
+            if added == 0 or len(batch) < page_size:
+                break
+            page += 1
+
         messages.sort(key=lambda x: x["date"], reverse=True)
 
         return {

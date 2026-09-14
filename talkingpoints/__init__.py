@@ -4,6 +4,7 @@ from .client import (
     TalkingPointsClient,
     default_token_path,
     load_token,
+    parse_timestamp,
     save_token,
 )
 
@@ -13,5 +14,6 @@ __all__ = [
     "TalkingPointsClient",
     "default_token_path",
     "load_token",
+    "parse_timestamp",
     "save_token",
 ]

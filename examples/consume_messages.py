@@ -15,7 +15,7 @@ import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from talkingpoints import AuthRequired, TalkingPointsClient
+from talkingpoints import AuthRequired, TalkingPointsClient, parse_timestamp
 
 
 def read_last_seen(path):
@@ -57,12 +57,12 @@ def main():
     feed = c.fetch_messages(days=days)
 
     def message_ts(date):
-        ts = datetime.datetime.fromisoformat(date.replace("Z", "+00:00"))
-        if ts.tzinfo is None:
-            ts = ts.replace(tzinfo=datetime.timezone.utc)
-        return ts
+        try:
+            return parse_timestamp(date).timestamp()
+        except ValueError:
+            return float("inf")  # include unparseable rather than lose it
 
-    new = [m for m in feed["messages"] if message_ts(m["date"]).timestamp() >= cutoff]
+    new = [m for m in feed["messages"] if message_ts(m["date"]) >= cutoff]
 
     if not new:
         print("No new talking points messages")

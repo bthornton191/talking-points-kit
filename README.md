@@ -143,9 +143,9 @@ raw JSON — it keeps prompts small and unambiguous.
 ## Operational notes
 
 - Polling every few hours is plenty; the feed endpoint is a standard web
-  API used by the web client. Note `pageSize` defaults to 50 in this kit —
-  if a window is busy enough to exceed that, raise `page_size` or the
-  `since` command will warn by way of a suspiciously old digest cutoff.
+  API used by the web client. `fetch_messages()` paginates automatically
+  until the requested window is covered, so long downtimes don't cause
+  gaps.
 - Keep the token file private — it grants full read access to your
   account's messages. The client creates it with `0600` permissions
   automatically.
