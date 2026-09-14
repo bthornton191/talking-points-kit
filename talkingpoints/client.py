@@ -201,7 +201,7 @@ class TalkingPointsClient:
 
         return {
             "status": "OK",
-            "unread": data.get("unreadCount"),
+            "unread": unread,
             "fetched_at": int(time.time()),
             "messages": messages,
         }
