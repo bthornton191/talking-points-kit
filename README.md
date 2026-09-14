@@ -143,9 +143,12 @@ raw JSON — it keeps prompts small and unambiguous.
 ## Operational notes
 
 - Polling every few hours is plenty; the feed endpoint is a standard web
-  API used by the web client, and `pageSize=50` covers a week easily.
+  API used by the web client. Note `pageSize` defaults to 50 in this kit —
+  if a window is busy enough to exceed that, raise `page_size` or the
+  `since` command will warn by way of a suspiciously old digest cutoff.
 - Keep the token file private — it grants full read access to your
-  account's messages. (`chmod 600` it.)
+  account's messages. The client creates it with `0600` permissions
+  automatically.
 - The phone number must be digits-only (no `+`, spaces, or dashes).
 - If messages seem stuck in the past, your token likely expired: the client
   will signal `LOGIN_REQUIRED`; rerun the request-code → login flow.

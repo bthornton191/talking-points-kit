@@ -13,7 +13,9 @@ Token is stored at $TP_TOKEN_FILE (default ~/.config/talkingpoints/token.json).
 
 import argparse
 import json
+import math
 import sys
+import time
 import datetime
 
 import requests
@@ -23,6 +25,14 @@ from .client import AuthRequired, APIError, TalkingPointsClient
 RequestException = requests.RequestException
 
 
+def _message_ts(date):
+    """Parse a message timestamp to an aware datetime (assume UTC if naive)."""
+    ts = datetime.datetime.fromisoformat(date.replace("Z", "+00:00"))
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=datetime.timezone.utc)
+    return ts
+
+
 def _digest(messages, cutoff):
     """Render messages newer than `cutoff` into a delimited text block."""
     parts = []
@@ -30,8 +40,7 @@ def _digest(messages, cutoff):
         date = m.get("date", "")
         if date:
             try:
-                ts = datetime.datetime.fromisoformat(date.replace("Z", "+00:00"))
-                if ts.timestamp() < cutoff:
+                if _message_ts(date).timestamp() < cutoff:
                     continue
             except ValueError:
                 pass
@@ -93,9 +102,11 @@ def main(argv=None):
                     datetime.datetime.now(datetime.timezone.utc)
                     - datetime.timedelta(hours=args.fallback_hours)
                 ).timestamp()
-            result = c.fetch_messages()
+            # window must cover everything back to the cutoff, not just 7 days
+            days = max(7, math.ceil((time.time() - cutoff) / 86400) + 1)
+            result = c.fetch_messages(days=days)
             print(_digest(result["messages"], cutoff))
-            _write_last_seen(args.last_seen_file, datetime.datetime.now().timestamp())
+            _write_last_seen(args.last_seen_file, time.time())
     except AuthRequired as e:
         print(json.dumps({"status": "LOGIN_REQUIRED", "error": str(e)}))
         sys.exit(2)

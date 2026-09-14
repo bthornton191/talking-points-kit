@@ -41,7 +41,8 @@ def default_token_path():
 
 def save_token(token_file, contact_id, token):
     os.makedirs(os.path.dirname(os.path.abspath(token_file)), exist_ok=True)
-    with open(token_file, "w") as f:
+    fd = os.open(token_file, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
         json.dump(
             {"contact_id": contact_id, "token": token, "timestamp": int(time.time())},
             f,

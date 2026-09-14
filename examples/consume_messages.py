@@ -8,8 +8,10 @@ arrived since the previous run.
 """
 
 import datetime
+import math
 import os
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -50,12 +52,17 @@ def main():
             - datetime.timedelta(hours=48)
         ).timestamp()
 
-    new = [
-        m
-        for m in feed["messages"]
-        if datetime.datetime.fromisoformat(m["date"].replace("Z", "+00:00")).timestamp()
-        >= cutoff
-    ]
+    # window must cover everything back to the cutoff, not just 7 days
+    days = max(7, math.ceil((time.time() - cutoff) / 86400) + 1)
+    feed = c.fetch_messages(days=days)
+
+    def message_ts(date):
+        ts = datetime.datetime.fromisoformat(date.replace("Z", "+00:00"))
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=datetime.timezone.utc)
+        return ts
+
+    new = [m for m in feed["messages"] if message_ts(m["date"]).timestamp() >= cutoff]
 
     if not new:
         print("No new talking points messages")
@@ -64,7 +71,7 @@ def main():
         print(m["text"])
         print()
 
-    write_last_seen(last_seen_file, datetime.datetime.now().timestamp())
+    write_last_seen(last_seen_file, time.time())
 
 
 if __name__ == "__main__":
