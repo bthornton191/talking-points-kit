@@ -114,10 +114,10 @@ renders them as a delimited block, then writes "now" into the file:
 
 ```
 --------------
-From: Elise
+From: Ms. Smith
 --------------
 <start_message>
-Good evening Kenwood families, ...
+Good evening families, ...
 <end_message>
 ```
 
